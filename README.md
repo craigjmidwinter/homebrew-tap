@@ -3,7 +3,8 @@
 Homebrew tap for [craigjmidwinter](https://github.com/craigjmidwinter)'s tools.
 
 ```sh
-brew install craigjmidwinter/tap/mail-muncher
+brew install craigjmidwinter/tap/getvect        # desktop app, built from source
+brew install craigjmidwinter/tap/mail-muncher   # CLI
 ```
 
 or, if you prefer to tap first:
@@ -14,6 +15,16 @@ brew install mail-muncher
 ```
 
 ## Contents
+
+## Formulae
+
+| Formula | Upstream | What it is |
+| --- | --- | --- |
+| `getvect` | [craigjmidwinter/getvect](https://github.com/craigjmidwinter/getvect) | Raster to vector, on your machine. No upload, no account, no API key. |
+
+**Why `getvect` is a formula and not a cask.** A cask downloads a `.dmg` the same way a browser does, so macOS sets `com.apple.quarantine` and Gatekeeper blocks the first launch — normally fixed by buying an Apple Developer certificate, or by stripping the attribute afterwards. A formula built from source is never quarantined in the first place: nothing arrives as a downloaded application bundle. **Verified on install: zero `com.apple.quarantine` attributes in the Cellar.** No certificate, no prompt, no attribute to strip.
+
+## Casks
 
 | Cask | Upstream | What it is |
 | --- | --- | --- |
