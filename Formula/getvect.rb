@@ -81,19 +81,26 @@ class Getvect < Formula
     # straight through again.
     (bin/"getvect").write <<~SH
       #!/bin/bash
+      # Asking a question and getting an answer is not an error, so -h/--help
+      # and --version print the guidance on stdout and exit 0. Anything else
+      # is a request this build cannot serve: stderr, exit 2.
       if [ "$#" -gt 0 ]; then
-        cat >&2 <<'MSG'
-      getvect: this build is the desktop app and takes no arguments.
-
-      The command-line tracer is not packaged yet. To use it:
-
-        git clone https://github.com/craigjmidwinter/getvect.git
-        cd getvect && npm install && npm run build:node
-        node bin/getvect.mjs INPUT [OUTPUT] [--help]
-
-      Run `getvect` with no arguments to open the app.
-      MSG
-        exit 2
+        case "$1" in
+          -h|--help|--version) _fd=1; _rc=0 ;;
+          *)                   _fd=2; _rc=2 ;;
+        esac
+        {
+          echo "getvect: this build is the desktop app and takes no arguments."
+          echo
+          echo "The command-line tracer is not packaged yet. To use it:"
+          echo
+          echo "  git clone https://github.com/craigjmidwinter/getvect.git"
+          echo "  cd getvect && npm install && npm run build:node"
+          echo "  node bin/getvect.mjs INPUT [OUTPUT] [--help]"
+          echo
+          echo "Run \`getvect\` with no arguments to open the app."
+        } >&"$_fd"
+        exit "$_rc"
       fi
       exec "#{libexec}/node_modules/.bin/electron" "#{libexec}" "$@"
     SH
