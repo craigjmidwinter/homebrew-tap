@@ -65,8 +65,36 @@ class Getvect < Formula
     # application bundle. Verified after this step: 0 com.apple.quarantine attrs.
     # The launcher. `electron .` is what `npm start` runs; this is the same path
     # without requiring the user to have a checkout.
+    # ARGUMENTS ARE REFUSED, DELIBERATELY, AND THIS IS NOT COSMETIC.
+    #
+    # This shim launches the GUI. Electron accepts any extra argv without
+    # complaint, so `getvect logo.png` used to open a WINDOW — and `getvect
+    # --help` opened a window too, instead of printing help. A command that
+    # silently does the wrong thing is worse than one that does not exist:
+    # it looks like a feature that is present and broken.
+    #
+    # getvect DOES have a headless CLI (`bin/getvect.mjs`), but it is not in
+    # this build — it runs from a clone. Until the packaged app grows a
+    # headless path, the honest behaviour is to say so and exit non-zero.
+    #
+    # DELETE THIS BRANCH when the app can trace headlessly, and pass "$@"
+    # straight through again.
     (bin/"getvect").write <<~SH
       #!/bin/bash
+      if [ "$#" -gt 0 ]; then
+        cat >&2 <<'MSG'
+      getvect: this build is the desktop app and takes no arguments.
+
+      The command-line tracer is not packaged yet. To use it:
+
+        git clone https://github.com/craigjmidwinter/getvect.git
+        cd getvect && npm install && npm run build:node
+        node bin/getvect.mjs INPUT [OUTPUT] [--help]
+
+      Run `getvect` with no arguments to open the app.
+      MSG
+        exit 2
+      fi
       exec "#{libexec}/node_modules/.bin/electron" "#{libexec}" "$@"
     SH
     chmod 0755, bin/"getvect"
