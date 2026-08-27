@@ -1,8 +1,14 @@
 class Getvect < Formula
   desc "Raster to vector, on your machine. No upload, no account, no API key"
   homepage "https://getvect.midwinter.io"
-  url "https://github.com/craigjmidwinter/getvect/archive/refs/tags/v0.1.6.tar.gz"
-  sha256 "67db93677f4e3f6dbe980955dd2d250ac1a0b03cfafbe04fe8303d98380d35f5"
+  # NOT v0.1.7. That tag exists and points at a commit that cannot build on
+  # Windows — a doc guard anchored on `^---\n` matched nothing once git checked
+  # the file out with CRLF, so the release job went red for a reason unrelated
+  # to what the guard checks. 0.1.8 is the fix; the bad tag was left in place
+  # rather than force-moved, because moving a published ref to hide a build
+  # that cannot run is worse than spending a version number.
+  url "https://github.com/craigjmidwinter/getvect/archive/refs/tags/v0.1.8.tar.gz"
+  sha256 "8db4b4066f3f6827dca2954d8b564b0c50351927bdd73f45c8688c5f0f6dac43"
   license "MIT"
 
   # A FORMULA, NOT A CASK, AND THAT IS THE WHOLE POINT.
