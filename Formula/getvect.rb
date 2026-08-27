@@ -1,8 +1,8 @@
 class Getvect < Formula
   desc "Raster to vector, on your machine. No upload, no account, no API key"
   homepage "https://getvect.midwinter.io"
-  url "https://github.com/craigjmidwinter/getvect/archive/refs/tags/v0.1.1.tar.gz"
-  sha256 "fda72a7629665b9c004b04d344d4a9b647ae3d66368718428f970092ae65a735"
+  url "https://github.com/craigjmidwinter/getvect/archive/refs/tags/v0.1.6.tar.gz"
+  sha256 "67db93677f4e3f6dbe980955dd2d250ac1a0b03cfafbe04fe8303d98380d35f5"
   license "MIT"
 
   # A FORMULA, NOT A CASK, AND THAT IS THE WHOLE POINT.
@@ -65,44 +65,37 @@ class Getvect < Formula
     # application bundle. Verified after this step: 0 com.apple.quarantine attrs.
     # The launcher. `electron .` is what `npm start` runs; this is the same path
     # without requiring the user to have a checkout.
-    # ARGUMENTS ARE REFUSED, DELIBERATELY, AND THIS IS NOT COSMETIC.
+    # ONE COMMAND, TWO PROGRAMS: no arguments opens the app, arguments run the
+    # headless tracer. Both are in this install; the shim only chooses.
     #
-    # This shim launches the GUI. Electron accepts any extra argv without
-    # complaint, so `getvect logo.png` used to open a WINDOW — and `getvect
-    # --help` opened a window too, instead of printing help. A command that
-    # silently does the wrong thing is worse than one that does not exist:
-    # it looks like a feature that is present and broken.
+    # This replaces a branch that REFUSED arguments, which was correct while
+    # `bin/getvect.mjs` existed only on `main` and in no tag. v0.1.6 is the
+    # first release whose source tarball contains it — verified by downloading
+    # that tarball and listing it, not by trusting the tag.
     #
-    # getvect DOES have a headless CLI (`bin/getvect.mjs`), but it is not in
-    # this build — it runs from a clone. Until the packaged app grows a
-    # headless path, the honest behaviour is to say so and exit non-zero.
+    # NODE IS REFERENCED BY ABSOLUTE PATH, NEVER AS BARE `node`.
     #
-    # DELETE THIS BRANCH when the app can trace headlessly, and pass "$@"
-    # straight through again.
+    # `depends_on "node"` guarantees a node exists at Homebrew's prefix. It
+    # guarantees nothing about the user's PATH — they may have no node at all,
+    # or a different major version than this built against. A shim that says
+    # `node` works perfectly for anyone who develops in node and fails for
+    # exactly the users a packaged CLI exists to serve.
+    #
+    # That is the ELECTRON-PRUNE BUG above with a different missing file: a
+    # launcher pointing at a binary that is not there, where `brew install`
+    # succeeds and the command dies. Interpolating the path at install time
+    # makes it unmissable, and the test below runs with a PATH that has no
+    # node so the failure cannot hide in a developer's shell.
     (bin/"getvect").write <<~SH
       #!/bin/bash
-      # Asking a question and getting an answer is not an error, so -h/--help
-      # and --version print the guidance on stdout and exit 0. Anything else
-      # is a request this build cannot serve: stderr, exit 2.
-      if [ "$#" -gt 0 ]; then
-        case "$1" in
-          -h|--help|--version) _fd=1; _rc=0 ;;
-          *)                   _fd=2; _rc=2 ;;
-        esac
-        {
-          echo "getvect: this build is the desktop app and takes no arguments."
-          echo
-          echo "The command-line tracer is not packaged yet. To use it:"
-          echo
-          echo "  git clone https://github.com/craigjmidwinter/getvect.git"
-          echo "  cd getvect && npm install && npm run build:node"
-          echo "  node bin/getvect.mjs INPUT [OUTPUT] [--help]"
-          echo
-          echo "Run \`getvect\` with no arguments to open the app."
-        } >&"$_fd"
-        exit "$_rc"
+      # No arguments: the GUI, exactly as before.
+      if [ "$#" -eq 0 ]; then
+        exec "#{libexec}/node_modules/.bin/electron" "#{libexec}"
       fi
-      exec "#{libexec}/node_modules/.bin/electron" "#{libexec}" "$@"
+      # Anything else: the CLI. `exec` so the tracer's exit code and its stdout
+      # and stderr reach the caller untouched — this shim adds nothing to
+      # either stream and must not swallow a status.
+      exec "#{Formula["node"].opt_bin}/node" "#{libexec}/bin/getvect.mjs" "$@"
     SH
     chmod 0755, bin/"getvect"
   end
@@ -133,8 +126,12 @@ class Getvect < Formula
 
   def caveats
     <<~EOS
-      GetVect is a desktop application. Launch it with:
-        getvect
+      GetVect is a desktop app and a command-line tracer, both from `getvect`:
+
+        getvect                      open the app
+        getvect logo.png             trace to logo.svg
+        getvect shot.jpg -f dxf      pick a format
+        getvect --help               every flag
 
       It was built from source on this machine, so macOS has not quarantined it
       and Gatekeeper will not prompt. Conversion runs locally — no upload, no
@@ -166,5 +163,29 @@ class Getvect < Formula
     # SIGKILLs on launch while every other check above still passes.
     system "/usr/bin/codesign", "--verify", "--deep", "--strict",
            libexec/"node_modules/electron/dist/Electron.app"
+
+    # THE CLI, RUN WITH A PATH THAT HAS NO NODE ON IT.
+    #
+    # This is the control, and without it the test only proves that the person
+    # running it has node installed. `env -i` strips the environment; the shim
+    # must still work, because it interpolates Homebrew's node by absolute
+    # path. A shim saying bare `node` passes every other assertion here and
+    # fails for exactly the users a packaged CLI exists to serve.
+    # `unpack1("m0")`, not Base64.decode64 — Homebrew no longer bundles the
+    # base64 gem, and the linter is right about that one. (It is wrong about the
+    # escaped backticks in a generated shell heredoc; read each offence.)
+    (testpath/"in.png").write(
+      ("iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFklEQVQIW2P8z8Dwn4E" \
+       "IwDiqEDlkAABL0wP9UOJ8fAAAAABJRU5ErkJggg==").unpack1("m0"),
+    )
+    system "/usr/bin/env", "-i", "PATH=/usr/bin:/bin",
+           bin/"getvect", testpath/"in.png", testpath/"out.svg"
+    assert_path_exists testpath/"out.svg"
+    assert_match "<svg", (testpath/"out.svg").read
+
+    # Help answers on stdout and exits 0; a bad path exits non-zero.
+    assert_match(/usage|Usage|--format/,
+                 shell_output("#{bin}/getvect --help"))
+    shell_output("#{bin}/getvect #{testpath}/nope.png 2>&1", 1)
   end
 end
