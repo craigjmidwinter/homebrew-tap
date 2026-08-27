@@ -119,7 +119,24 @@ class Getvect < Formula
     nested = Dir[app/"Contents/Frameworks/*.framework"] +
              Dir[app/"Contents/Frameworks/*.app"] +
              Dir[app/"Contents/Frameworks/*.dylib"]
-    (nested.sort + [app]).each do |target|
+    # sharp's native artefacts need the SAME repair, and they were missed until
+    # 2026-08-27 because nothing exercised them.
+    #
+    # Homebrew's relocation breaks every ad-hoc signature it copies, not just
+    # Electron's. `codesign --verify` on the relocated libvips reported "invalid
+    # signature (code or signature have been modified)", and macOS SIGKILLed the
+    # process that loaded it. The GUI never noticed: it runs the vite build,
+    # which does not touch sharp. The CLI decodes JPEG through sharp, so the
+    # very first `getvect logo.png` died with exit 137 and no output — no error
+    # message, because the kill happens before anything can print one.
+    #
+    # Signed innermost-out for the same reason as the frameworks above: signing
+    # a container first invalidates it again when its contents change.
+    native = Dir[libexec/"node_modules/@img/**/*.dylib"] +
+             Dir[libexec/"node_modules/@img/**/*.node"] +
+             Dir[libexec/"node_modules/@resvg/**/*.node"]
+
+    (nested.sort + [app] + native.sort).each do |target|
       system "/usr/bin/codesign", "--force", "--sign", "-", "--timestamp=none", target
     end
   end
